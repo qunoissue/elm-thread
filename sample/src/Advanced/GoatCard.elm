@@ -1,6 +1,6 @@
 module Advanced.GoatCard exposing
     ( Memory
-    , Event
+    , Event(..)
     , init
     , procedures
     , view
@@ -21,7 +21,8 @@ import Html.Attributes as Attributes exposing (style)
 import Html.Events as Events
 import Html.Events.Extra exposing (onChange)
 import Thread.Procedure as Procedure exposing (Block, Procedure)
-
+import Http
+import Json.Decode as JD
 
 {-| -}
 type Memory
@@ -66,6 +67,7 @@ type Event
     | ClickSave
     | ClickCancel
     | ChangeName String
+    | ReceiveSaveNewGoat (Result Http.Error ())
 
 
 
@@ -89,19 +91,33 @@ editModeProcedures opt _ =
         \event _ ->
             case event of
                 ClickSave ->
-                    [ Procedure.modify <|
-                        \(Memory memory) ->
-                            Memory
-                                { memory
-                                    | form =
-                                        { name = ""
-                                        }
-                                    , saved =
-                                        { name = memory.form.name
-                                        }
-                                    , onEditing = False
-                                }
-                    , Procedure.jump savedModeProcedures
+                    [ Procedure.withMemory <|
+                        \(Memory memory) _ ->
+                            [ saveNewGoatProcedure
+                                ReceiveSaveNewGoat
+                                memory.form.name
+                            ]
+                    , Procedure.await <|
+                        \event_ _ ->
+                            case event_ of
+                                ReceiveSaveNewGoat (Ok _) ->
+                                    [ Procedure.modify <|
+                                        \(Memory memory) ->
+                                            Memory
+                                                { memory
+                                                    | form =
+                                                        { name = ""
+                                                        }
+                                                    , saved =
+                                                        { name = memory.form.name
+                                                        }
+                                                    , onEditing = False
+                                                }
+                                    , Procedure.jump savedModeProcedures
+                                    ]
+
+                                _ ->
+                                    []
                     ]
 
                 ClickCancel ->
@@ -128,6 +144,22 @@ editModeProcedures opt _ =
                 _ ->
                     []
     ]
+
+
+{-|
+-}
+saveNewGoatProcedure : (Result Http.Error () -> event) -> String -> Procedure memory event
+saveNewGoatProcedure event _ =
+    Procedure.push <|
+        \_ ->
+            Http.get
+                { url =
+                    "https://api.agify.io?name=bella"
+                , expect =
+                    Http.expectJson
+                        event <|
+                        JD.succeed ()
+                }
 
 
 {-| Procedure for view mode.

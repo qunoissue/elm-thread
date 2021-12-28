@@ -7,7 +7,7 @@ import Html.Events as Events
 import Html.Keyed as Keyed
 import Thread.Browser as Browser exposing (Document, Program)
 import Thread.LocalMemory as LocalMemory exposing (LocalMemory)
-import Thread.Procedure as Procedure exposing (Block, Msg, ThreadId)
+import Thread.Procedure as Procedure exposing (Block, Msg, Procedure, ThreadId)
 import Thread.Wrapper exposing (Wrapper)
 
 
@@ -25,12 +25,14 @@ main =
 -}
 type alias Memory =
     { cards : LocalMemory GoatCard.Memory
+    , log : String
     }
 
 
 init : Memory
 init =
     { cards = LocalMemory.init
+    , log = ""
     }
 
 
@@ -81,6 +83,10 @@ view tid shared =
                             )
                         )
                 )
+            , Html.pre
+                []
+                [ Html.text shared.log
+                ]
             ]
         ]
     }
@@ -105,13 +111,19 @@ procedures () _ =
         \event _ ->
             case event of
                 ClickAddGoatCard ->
-                    [ LocalMemory.asyncChild
+                    [ LocalMemory.async
                         { get = .cards >> Just
                         , set = \cards shared -> { shared | cards = cards }
                         }
-                        GoatCard.init
-                        (GoatCard.procedures
-                            |> Procedure.wrapBlock goatCardWrapper
+                        GoatCard.init <|
+                        ( \lift _ ->
+                            [ receiveSaveNewGoatProcedures
+                                |> Procedure.async
+                            , GoatCard.procedures
+                                |> Procedure.wrapBlock goatCardWrapper
+                                |> lift
+                                |> Procedure.block
+                            ]
                         )
                     ]
 
@@ -119,6 +131,31 @@ procedures () _ =
                     []
     , Procedure.jump <| procedures ()
     ]
+
+
+receiveSaveNewGoatProcedures : Block Memory Event
+receiveSaveNewGoatProcedures _ =
+    [ Procedure.await <|
+        \event_ _ ->
+            case goatCardWrapper.unwrap event_ of
+                Just (GoatCard.ReceiveSaveNewGoat result) ->
+                    [ putLog <|
+                        case result of
+                            Ok _ ->
+                                "Successfully saved"
+                            Err _ ->
+                                "Failed to save"
+                    ]
+
+                _ ->
+                    []
+    , Procedure.jump <| receiveSaveNewGoatProcedures
+    ]
+
+
+putLog : String -> Procedure Memory Event
+putLog log =
+    Procedure.modify <| \memory -> { memory | log = memory.log ++ log ++ "\n" }
 
 
 goatCardWrapper : Wrapper Event GoatCard.Event
