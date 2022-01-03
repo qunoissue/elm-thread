@@ -122,7 +122,7 @@ procedures () _ =
                             , GoatCard.procedures
                                 |> Procedure.wrapBlock goatCardWrapper
                                 |> lift
-                                |> Procedure.block
+                                |> Procedure.jump
                             ]
                         )
                     ]
