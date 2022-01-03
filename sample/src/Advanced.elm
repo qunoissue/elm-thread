@@ -117,7 +117,7 @@ procedures () _ =
                         }
                         GoatCard.init <|
                         ( \lift _ ->
-                            [ receiveSaveNewGoatProcedures
+                            [ localEventProcedures
                                 |> Procedure.async
                             , GoatCard.procedures
                                 |> Procedure.wrapBlock goatCardWrapper
@@ -133,8 +133,8 @@ procedures () _ =
     ]
 
 
-receiveSaveNewGoatProcedures : Block Memory Event
-receiveSaveNewGoatProcedures _ =
+localEventProcedures : Block Memory Event
+localEventProcedures _ =
     [ Procedure.await <|
         \event_ _ ->
             case goatCardWrapper.unwrap event_ of
@@ -147,9 +147,26 @@ receiveSaveNewGoatProcedures _ =
                                 "Failed to save"
                     ]
 
+                Just GoatCard.ClickAddGoatCard ->
+                    [ LocalMemory.async
+                        { get = .cards >> Just
+                        , set = \cards shared -> { shared | cards = cards }
+                        }
+                        GoatCard.init <|
+                        ( \lift _ ->
+                            [ localEventProcedures
+                                |> Procedure.async
+                            , GoatCard.procedures
+                                |> Procedure.wrapBlock goatCardWrapper
+                                |> lift
+                                |> Procedure.jump
+                            ]
+                        )
+                    ]
+
                 _ ->
                     []
-    , Procedure.jump <| receiveSaveNewGoatProcedures
+    , Procedure.jump <| localEventProcedures
     ]
 
 

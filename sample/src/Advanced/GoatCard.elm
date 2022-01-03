@@ -68,6 +68,7 @@ type Event
     | ClickCancel
     | ChangeName String
     | ReceiveSaveNewGoat (Result Http.Error ())
+    | ClickAddGoatCard
 
 
 
@@ -306,6 +307,17 @@ savedModeView saved =
                 [ style "padding" "0.4em"
                 ]
                 [ Html.text <| "name: " ++ saved.name
+                ]
+            , Html.div
+                [ style "padding" "0.4em"
+                ]
+                [ Html.button
+                    [ Attributes.type_ "button"
+                    , Events.onClick
+                        (ClickAddGoatCard)
+                    ]
+                    [ Html.text "Add new card"
+                    ]
                 ]
             ]
         ]
